@@ -14,7 +14,7 @@ public interface BillingService extends Remote {
     Invoice createInvoice(String clientName, Map<Article, Integer> articles) throws RemoteException;
     List<Invoice> getAllInvoices() throws RemoteException;
     Invoice getInvoice(String id) throws RemoteException;
-    double calculateRevenue(Date date);
+    double calculateRevenue(Date date) throws RemoteException;
     boolean payInvoice(String id, PaymentMethod method) throws RemoteException;
     Invoice getInvoice(int id) throws RemoteException; // Added missing method
 

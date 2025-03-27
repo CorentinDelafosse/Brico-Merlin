@@ -5,9 +5,12 @@ import Magasin.common.BillingService;
 import Magasin.model.Article;
 import Magasin.model.Invoice;
 import Magasin.model.PaymentMethod;
+import Magasin.server.ArticleServiceImpl;
+import Magasin.server.BillingServiceImpl;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -21,25 +24,51 @@ public class MagasinClient {
     public MagasinClient() {
         scanner = new Scanner(System.in);
     }
-    
+
     public boolean connect() {
         try {
-            // Connexion au serveur RMI
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            
+            System.out.println("Tentative de connexion au registre RMI sur localhost:1099...");
+
+            // Définir explicitement l'adresse
+            System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+
+            // Tentative de connexion avec affichage détaillé
+            Registry registry = null;
+            try {
+                System.out.println("Essai avec localhost...");
+                registry = LocateRegistry.getRegistry("localhost", 1099);
+                System.out.println("Connexion au registre réussie avec localhost");
+            } catch (Exception e) {
+                System.out.println("Échec avec localhost: " + e.getMessage());
+                try {
+                    System.out.println("Essai avec 127.0.0.1...");
+                    registry = LocateRegistry.getRegistry("127.0.0.1", 1099);
+                    System.out.println("Connexion au registre réussie avec 127.0.0.1");
+                } catch (Exception e2) {
+                    System.out.println("Échec avec 127.0.0.1: " + e2.getMessage());
+                    throw e2;
+                }
+            }
+
             // Récupération des services
+            System.out.println("Récupération du service ArticleService...");
             articleService = (ArticleService) registry.lookup("ArticleService");
+            System.out.println("ArticleService récupéré avec succès");
+
+            System.out.println("Récupération du service BillingService...");
             billingService = (BillingService) registry.lookup("BillingService");
-            
-            System.out.println("Connected to the server successfully.");
+            System.out.println("BillingService récupéré avec succès");
+
+            System.out.println("Connexion au serveur réussie.");
             return true;
         } catch (Exception e) {
-            System.err.println("Error connecting to the server: " + e.getMessage());
+            System.err.println("Erreur de connexion au serveur: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
-    
+
+
     public void displayMenu() {
         System.out.println("\n==== BRICO-MERLIN CLIENT MENU ====");
         System.out.println("1. Consulter le stock d'un article");
@@ -368,13 +397,43 @@ public class MagasinClient {
         }
     }
     
-    public static void main(String[] args) {
-        MagasinClient client = new MagasinClient();
-        
-        if (client.connect()) {
-            client.run();
-        } else {
-            System.err.println("Impossible de se connecter au serveur. L'application va se terminer.");
+    // Dans votre MagasinServer.java
+    public class MagasinServer {
+        public static void main(String[] args) {
+            try {
+                // Définir des propriétés système pour RMI
+                System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+                System.setProperty("java.security.policy", "server.policy");
+                
+                // Si un SecurityManager est nécessaire
+                if (System.getSecurityManager() == null) {
+                    System.setSecurityManager(new SecurityManager());
+                }
+                
+                // Créer des instances de services
+                ArticleServiceImpl articleService = new ArticleServiceImpl();
+                BillingServiceImpl billingService = new BillingServiceImpl();
+                
+                // Créer explicitement le registre RMI
+                Registry registry = LocateRegistry.createRegistry(1099);
+                System.out.println("Registre RMI créé sur le port 1099");
+                
+                // Exporter les objets en tant que stubs RMI
+                ArticleService articleStub = (ArticleService) UnicastRemoteObject.exportObject(articleService, 0);
+                BillingService billingStub = (BillingService) UnicastRemoteObject.exportObject(billingService, 0);
+                
+                // Enregistrer les services dans le registre
+                registry.rebind("ArticleService", articleStub);
+                registry.rebind("BillingService", billingStub);
+                
+                System.out.println("Services ArticleService et BillingService enregistrés");
+                System.out.println("Serveur prêt");
+            } catch (Exception e) {
+                System.err.println("Erreur serveur: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
+    
+
 }
