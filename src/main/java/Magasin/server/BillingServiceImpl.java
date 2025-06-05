@@ -44,20 +44,33 @@ public class BillingServiceImpl implements BillingService {
     }
 
     @Override
-    public Invoice getInvoice(String id) throws RemoteException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getInvoice'");
-    }
-
-    @Override
     public double calculateRevenue(Date date) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'calculateRevenue'");
+        double total = 0.0;
+        for (Invoice invoice : invoices) {
+            if (invoice.isPaid() && isSameDay(invoice.getDate(), date)) {
+                total += invoice.getTotal();
+            }
+        }
+        return total;
+    }
+
+    private boolean isSameDay(Date date1, Date date2) {
+        if (date1 == null || date2 == null) {
+            return false;
+        }
+        return date1.getYear() == date2.getYear() &&
+               date1.getMonth() == date2.getMonth() &&
+               date1.getDate() == date2.getDate();
     }
 
     @Override
-    public boolean payInvoice(String id, PaymentMethod method) throws RemoteException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'payInvoice'");
+    public boolean payInvoice(int id, PaymentMethod method) throws RemoteException {
+        for (Invoice invoice : invoices) {
+            if (invoice.getId() == id) {
+                invoice.setPaymentMethod(method);
+                return true;
+            }
+        }
+        return false;
     }
 }

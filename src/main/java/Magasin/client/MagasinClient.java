@@ -142,6 +142,7 @@ public class MagasinClient {
             if (article != null) {
                 System.out.println("\nInformations de l'article:");
                 System.out.println("Référence: " + article.getCode());
+                System.out.println("Nom: " + article.getName());
                 System.out.println("Famille: " + article.getFamily());
                 System.out.println("Prix unitaire: " + article.getPrice() + " €");
                 System.out.println("Quantité en stock: " + article.getStock());
@@ -163,12 +164,13 @@ public class MagasinClient {
             if (articles != null && !articles.isEmpty()) {
                 System.out.println("\nArticles de la famille '" + family + "':");
                 System.out.println("------------------------------------------------");
-                System.out.printf("%-15s %-20s %-10s %-10s%n", "Référence", "Famille", "Prix (€)", "Stock");
+                System.out.printf("%-15s %-20s %-20s %-10s %-10s%n", "Référence", "Nom", "Famille", "Prix (€)", "Stock");
                 System.out.println("------------------------------------------------");
                 
                 for (Article article : articles) {
-                    System.out.printf("%-15s %-20s %-10.2f %-10d%n", 
-                                     article.getCode(), 
+                    System.out.printf("%-15s %-20s %-20s %-10.2f %-10d%n", 
+                                     article.getCode(),
+                                     article.getName(),
                                      article.getFamily(), 
                                      article.getPrice(), 
                                      article.getStock());
@@ -223,7 +225,7 @@ public class MagasinClient {
             if (success) {
                 System.out.println("Achat effectué avec succès!");
                 // Afficher la facture mise à jour
-                Invoice invoice = billingService.getInvoice(clientId);
+                Invoice invoice = billingService.getInvoice(Integer.parseInt(clientId));
                 if (invoice != null) {
                     System.out.println("\nFacture mise à jour:");
                     System.out.println("Montant total: " + invoice.getTotal() + " €");
@@ -242,7 +244,7 @@ public class MagasinClient {
             System.out.print("Entrez l'ID du client : ");
             String clientId = scanner.nextLine();
             
-            Invoice invoice = billingService.getInvoice(clientId);
+            Invoice invoice = billingService.getInvoice(Integer.parseInt(clientId));
             
             if (invoice != null) {
                 SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
@@ -285,7 +287,7 @@ public class MagasinClient {
             System.out.print("Entrez l'ID du client : ");
             String clientId = scanner.nextLine();
             
-            Invoice invoice = billingService.getInvoice(clientId);
+            Invoice invoice = billingService.getInvoice(Integer.parseInt(clientId));
             if (invoice == null) {
                 System.out.println("Aucune facture trouvée pour ce client.");
                 return;
@@ -320,7 +322,7 @@ public class MagasinClient {
             
             PaymentMethod selectedMethod = methods[methodChoice];
             
-            boolean success = billingService.payInvoice(clientId, selectedMethod);
+            boolean success = billingService.payInvoice(Integer.parseInt(clientId), selectedMethod);
             
             if (success) {
                 System.out.println("Paiement effectué avec succès par " + selectedMethod.getDisplayName() + "!");
@@ -381,7 +383,7 @@ public class MagasinClient {
                 System.out.println("La quantité doit être positive.");
                 return;
             }
-            
+            System.out.println(quantity);
             boolean success = articleService.addStock(reference, quantity);
             
             if (success) {
@@ -407,7 +409,7 @@ public class MagasinClient {
                 
                 // Si un SecurityManager est nécessaire
                 if (System.getSecurityManager() == null) {
-                    System.setSecurityManager(new SecurityManager());
+                    System.setSecurityManager(null);
                 }
                 
                 // Créer des instances de services
@@ -435,5 +437,12 @@ public class MagasinClient {
         }
     }
     
-
+    public static void main(String[] args) {
+        MagasinClient client = new MagasinClient();
+        if (client.connect()) {
+            client.run();
+        } else {
+            System.err.println("Impossible de se connecter au serveur.");
+        }
+    }
 }

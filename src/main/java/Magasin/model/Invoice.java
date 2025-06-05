@@ -74,6 +74,11 @@ public class Invoice implements Serializable {
         return paymentMethod;
     }
     
+    public void setPaymentMethod(PaymentMethod method) {
+        this.paymentMethod = method;
+        this.paid = true;
+    }
+    
     @Override
     public String toString() {
         return "Invoice [id=" + id + ", clientName=" + clientName + ", date=" + date + ", total=" + total + "]";

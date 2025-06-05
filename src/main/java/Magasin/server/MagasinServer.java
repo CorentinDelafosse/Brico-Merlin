@@ -20,6 +20,7 @@ public class MagasinServer {
     
     public static void main(String[] args) {
         try {
+            System.setSecurityManager(null);
             // Créer et exposer les services
             ArticleServiceImpl articleService = new ArticleServiceImpl();
             BillingServiceImpl billingService = new BillingServiceImpl();

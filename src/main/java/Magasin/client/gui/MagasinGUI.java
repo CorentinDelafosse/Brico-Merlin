@@ -16,7 +16,10 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MagasinGUI extends JFrame {
     private ArticleService articleService;
@@ -97,7 +100,7 @@ public class MagasinGUI extends JFrame {
         JPanel resultPanel = new JPanel(new BorderLayout());
         resultPanel.setBorder(BorderFactory.createTitledBorder("Résultats"));
         
-        String[] columnNames = {"Référence", "Famille", "Prix unitaire (€)", "Stock"};
+        String[] columnNames = {"Référence", "Nom", "Famille", "Prix unitaire (€)", "Stock"};
         DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -131,6 +134,7 @@ public class MagasinGUI extends JFrame {
         
         JButton buttonConsult = new JButton("Consulter par référence");
         JButton buttonBuy = new JButton("Acheter");
+        JButton buttonAddArticle = new JButton("Ajouter un article");
         
         detailsPanel.add(labelRef);
         detailsPanel.add(textFieldRef);
@@ -142,6 +146,7 @@ public class MagasinGUI extends JFrame {
         detailsPanel.add(textFieldStock);
         detailsPanel.add(buttonConsult);
         detailsPanel.add(buttonBuy);
+        detailsPanel.add(buttonAddArticle);
         
         // Ajouter les composants au panel principal
         articlePanel.add(searchPanel, BorderLayout.NORTH);
@@ -171,6 +176,7 @@ public class MagasinGUI extends JFrame {
                         for (Article article : articles) {
                             Object[] row = {
                                 article.getCode(),
+                                article.getName(),
                                 article.getFamily(),
                                 article.getPrice(),
                                 article.getStock()
@@ -251,6 +257,7 @@ public class MagasinGUI extends JFrame {
                                 tableModel.setRowCount(0);
                                 Object[] row = {
                                     article.getCode(),
+                                    article.getName(),
                                     article.getFamily(),
                                     article.getPrice(),
                                     article.getStock()
@@ -343,6 +350,11 @@ public class MagasinGUI extends JFrame {
                         if (selectedRow != -1) {
                             tableModel.setValueAt(article.getStock(), selectedRow, 3);
                         }
+
+                        //ajouter la facture
+                        Map<Article, Integer> articleMap = new HashMap<>();
+                        articleMap.put(article, quantity);
+                        billingService.createInvoice(clientId, articleMap);
                         
                         // Aller sur l'onglet facture
                         tabbedPane.setSelectedIndex(1);
@@ -378,6 +390,147 @@ public class MagasinGUI extends JFrame {
                 }
             }
         });
+        
+        // Événement pour ajouter un article
+        buttonAddArticle.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Créer une fenêtre de dialogue pour saisir les informations
+                JDialog dialog = new JDialog(MagasinGUI.this, "Ajouter un article", true);
+                dialog.setLayout(new GridBagLayout());
+                GridBagConstraints gbc = new GridBagConstraints();
+                gbc.insets = new Insets(5, 5, 5, 5);
+                gbc.fill = GridBagConstraints.HORIZONTAL;
+
+                // Champs de saisie
+                JTextField refField = new JTextField(20);
+                JTextField nameField = new JTextField(20);
+                JTextField familyField = new JTextField(20);
+                JTextField priceField = new JTextField(20);
+                JTextField stockField = new JTextField(20);
+
+                // Ajouter les champs au dialogue
+                gbc.gridx = 0; gbc.gridy = 0;
+                dialog.add(new JLabel("Référence:"), gbc);
+                gbc.gridx = 1;
+                dialog.add(refField, gbc);
+
+                gbc.gridx = 0; gbc.gridy = 1;
+                dialog.add(new JLabel("Nom:"), gbc);
+                gbc.gridx = 1;
+                dialog.add(nameField, gbc);
+
+                gbc.gridx = 0; gbc.gridy = 2;
+                dialog.add(new JLabel("Famille:"), gbc);
+                gbc.gridx = 1;
+                dialog.add(familyField, gbc);
+
+                gbc.gridx = 0; gbc.gridy = 3;
+                dialog.add(new JLabel("Prix unitaire (€):"), gbc);
+                gbc.gridx = 1;
+                dialog.add(priceField, gbc);
+
+                gbc.gridx = 0; gbc.gridy = 4;
+                dialog.add(new JLabel("Stock initial:"), gbc);
+                gbc.gridx = 1;
+                dialog.add(stockField, gbc);
+
+                // Boutons
+                JPanel buttonPanel = new JPanel();
+                JButton saveButton = new JButton("Enregistrer");
+                JButton cancelButton = new JButton("Annuler");
+                buttonPanel.add(saveButton);
+                buttonPanel.add(cancelButton);
+
+                gbc.gridx = 0; gbc.gridy = 5;
+                gbc.gridwidth = 2;
+                dialog.add(buttonPanel, gbc);
+
+                // Action pour le bouton Enregistrer
+                saveButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        try {
+                            // Récupérer et valider les valeurs
+                            String reference = refField.getText().trim();
+                            String name = nameField.getText().trim();
+                            String family = familyField.getText().trim();
+                            double price = Double.parseDouble(priceField.getText().trim());
+                            int stock = Integer.parseInt(stockField.getText().trim());
+
+                            if (reference.isEmpty() || name.isEmpty() || family.isEmpty()) {
+                                JOptionPane.showMessageDialog(dialog,
+                                    "Tous les champs doivent être remplis",
+                                    "Erreur de saisie",
+                                    JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+
+                            if (price <= 0) {
+                                JOptionPane.showMessageDialog(dialog,
+                                    "Le prix doit être supérieur à 0",
+                                    "Erreur de saisie",
+                                    JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+
+                            if (stock < 0) {
+                                JOptionPane.showMessageDialog(dialog,
+                                    "Le stock ne peut pas être négatif",
+                                    "Erreur de saisie",
+                                    JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+
+                            // Créer et ajouter l'article
+                            Article newArticle = new Article(reference, name, family, price, stock);
+                            boolean success = articleService.addArticle(newArticle);
+
+                            if (success) {
+                                JOptionPane.showMessageDialog(dialog,
+                                    "Article ajouté avec succès !",
+                                    "Succès",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                                
+                                // Rafraîchir la liste des articles
+                                buttonSearch.doClick();
+                                
+                                dialog.dispose();
+                            } else {
+                                JOptionPane.showMessageDialog(dialog,
+                                    "Erreur lors de l'ajout de l'article",
+                                    "Erreur",
+                                    JOptionPane.ERROR_MESSAGE);
+                            }
+                        } catch (NumberFormatException ex) {
+                            JOptionPane.showMessageDialog(dialog,
+                                "Le prix et le stock doivent être des nombres valides",
+                                "Erreur de format",
+                                JOptionPane.ERROR_MESSAGE);
+                        } catch (Exception ex) {
+                            JOptionPane.showMessageDialog(dialog,
+                                "Erreur lors de l'ajout de l'article: " + ex.getMessage(),
+                                "Erreur",
+                                JOptionPane.ERROR_MESSAGE);
+                            ex.printStackTrace();
+                        }
+                    }
+                });
+
+                // Action pour le bouton Annuler
+                cancelButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        dialog.dispose();
+                    }
+                });
+
+                // Afficher la fenêtre de dialogue
+                dialog.pack();
+                dialog.setLocationRelativeTo(articlePanel);
+                dialog.setVisible(true);
+            }
+        });
     }
     
     private JTextField invoiceClientIdField;
@@ -393,12 +546,29 @@ public class MagasinGUI extends JFrame {
         JLabel labelClientId = new JLabel("ID du client:");
         invoiceClientIdField = new JTextField(15);
         invoiceSearchButton = new JButton("Rechercher");
+        JButton refreshButton = new JButton("Rafraîchir toutes les factures");
+        JButton downloadButton = new JButton("Télécharger les factures");
         
         searchPanel.add(labelClientId);
         searchPanel.add(invoiceClientIdField);
         searchPanel.add(invoiceSearchButton);
+        searchPanel.add(refreshButton);
+        searchPanel.add(downloadButton);
         
-        // Panel centre pour afficher la facture
+        // Table pour toutes les factures
+        String[] allInvoicesColumns = {"ID", "Client", "Date", "Total", "Statut", "Mode de paiement"};
+        DefaultTableModel allInvoicesModel = new DefaultTableModel(allInvoicesColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable allInvoicesTable = new JTable(allInvoicesModel);
+        JScrollPane allInvoicesScrollPane = new JScrollPane(allInvoicesTable);
+        allInvoicesScrollPane.setBorder(BorderFactory.createTitledBorder("Toutes les factures"));
+        
+        // Panel centre pour afficher la facture sélectionnée
         JPanel invoiceDetailsPanel = new JPanel(new BorderLayout());
         invoiceDetailsPanel.setBorder(BorderFactory.createTitledBorder("Détails de la facture"));
         
@@ -447,10 +617,15 @@ public class MagasinGUI extends JFrame {
         
         // Ajouter les composants au panel principal
         invoicePanel.add(searchPanel, BorderLayout.NORTH);
-        invoicePanel.add(invoiceDetailsPanel, BorderLayout.CENTER);
+        
+        // Créer un panel pour diviser l'espace entre la liste et les détails
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+            allInvoicesScrollPane, invoiceDetailsPanel);
+        splitPane.setResizeWeight(0.5);
+        invoicePanel.add(splitPane, BorderLayout.CENTER);
         invoicePanel.add(actionsPanel, BorderLayout.SOUTH);
         
-        // Événement pour rechercher une facture
+        // Événement pour la recherche de facture
         invoiceSearchButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -458,68 +633,136 @@ public class MagasinGUI extends JFrame {
                 
                 if (clientId.isEmpty()) {
                     JOptionPane.showMessageDialog(invoicePanel, 
-                        "Veuillez entrer l'ID du client", 
+                        "Veuillez entrer un ID client", 
                         "Champ vide", 
                         JOptionPane.WARNING_MESSAGE);
                     return;
                 }
                 
                 try {
-                    Invoice invoice = billingService.getInvoice(clientId);
+                    List<Invoice> allInvoices = billingService.getAllInvoices();
+                    allInvoicesModel.setRowCount(0);
                     
-                    if (invoice != null) {
-                        // Mettre à jour les infos de l'entête
-                        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
-                        textFieldDate.setText(dateFormat.format(invoice.getDate()));
-                        textFieldTotal.setText(String.valueOf(invoice.getTotal()) + " €");
-                        
-                        String status = invoice.isPaid() ? 
-                            "Payée (" + invoice.getPaymentMethod() + ")" : 
-                            "En attente de paiement";
-                        
-                        textFieldStatus.setText(status);
-                        
-                        // Mettre à jour la table d'articles
-                        tableModel.setRowCount(0);
-                        
-                        for (InvoiceItem item : invoice.getArticles()) {
-                            Article article = item.getArticle();
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+                    
+                    // Filtrer les factures pour le client spécifié
+                    List<Invoice> clientInvoices = allInvoices.stream()
+                        .filter(invoice -> invoice.getClientName().equals(clientId))
+                        .collect(Collectors.toList());
+                    
+                    if (!clientInvoices.isEmpty()) {
+                        for (Invoice invoice : clientInvoices) {
                             Object[] row = {
-                                article.getCode(),
-                                article.getFamily(),
-                                article.getPrice(),
-                                item.getQuantity(),
-                                item.getTotalPrice()
+                                invoice.getId(),
+                                invoice.getClientName(),
+                                dateFormat.format(invoice.getDate()),
+                                String.format("%.2f €", invoice.getTotal()),
+                                invoice.isPaid() ? "Payée" : "En attente",
+                                invoice.isPaid() ? invoice.getPaymentMethod().getDisplayName() : "-"
                             };
-                            tableModel.addRow(row);
+                            allInvoicesModel.addRow(row);
                         }
-                        
-                        // Activer/désactiver le bouton de paiement selon l'état
-                        buttonPay.setEnabled(!invoice.isPaid());
-                        
                     } else {
                         JOptionPane.showMessageDialog(invoicePanel, 
                             "Aucune facture trouvée pour ce client", 
-                            "Facture non trouvée", 
+                            "Recherche sans résultat", 
                             JOptionPane.INFORMATION_MESSAGE);
-                        
-                        // Réinitialiser l'affichage
-                        textFieldDate.setText("");
-                        textFieldTotal.setText("");
-                        textFieldStatus.setText("");
-                        tableModel.setRowCount(0);
-                        
-                        buttonPay.setEnabled(false);
                     }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(invoicePanel, 
-                        "Erreur lors de la recherche de la facture: " + ex.getMessage(), 
+                        "Erreur lors de la recherche: " + ex.getMessage(), 
                         "Erreur", 
                         JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
             }
         });
+        
+        // Événement pour rafraîchir toutes les factures
+        refreshButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    List<Invoice> invoices = billingService.getAllInvoices();
+                    allInvoicesModel.setRowCount(0);
+                    
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+                    
+                    for (Invoice invoice : invoices) {
+                        Object[] row = {
+                            invoice.getId(),
+                            invoice.getClientName(),
+                            dateFormat.format(invoice.getDate()),
+                            String.format("%.2f €", invoice.getTotal()),
+                            invoice.isPaid() ? "Payée" : "En attente",
+                            invoice.isPaid() ? invoice.getPaymentMethod().getDisplayName() : "-"
+                        };
+                        allInvoicesModel.addRow(row);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(invoicePanel,
+                        "Erreur lors du chargement des factures: " + ex.getMessage(),
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            }
+        });
+        
+        // Événement pour sélectionner une facture dans la table
+        allInvoicesTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int selectedRow = allInvoicesTable.getSelectedRow();
+                if (selectedRow != -1) {
+                    int invoiceId = (int) allInvoicesModel.getValueAt(selectedRow, 0);
+                    try {
+                        Invoice invoice = billingService.getInvoice(invoiceId);
+                        if (invoice != null) {
+                            // Mettre à jour les détails de la facture
+                            SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+                            textFieldDate.setText(dateFormat.format(invoice.getDate()));
+                            textFieldTotal.setText(String.format("%.2f €", invoice.getTotal()));
+                            
+                            String status = invoice.isPaid() ? 
+                                "Payée (" + invoice.getPaymentMethod() + ")" : 
+                                "En attente de paiement";
+                            
+                            textFieldStatus.setText(status);
+                            
+                            // Mettre à jour la table d'articles
+                            tableModel.setRowCount(0);
+                            
+                            for (InvoiceItem item : invoice.getArticles()) {
+                                Article article = item.getArticle();
+                                Object[] row = {
+                                    article.getCode(),
+                                    article.getFamily(),
+                                    article.getPrice(),
+                                    item.getQuantity(),
+                                    item.getTotalPrice()
+                                };
+                                tableModel.addRow(row);
+                            }
+                            
+                            // Activer/désactiver le bouton de paiement
+                            buttonPay.setEnabled(!invoice.isPaid());
+                            
+                            // Mettre à jour le champ ID client
+                            invoiceClientIdField.setText(String.valueOf(invoice.getId()));
+                        }
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(invoicePanel,
+                            "Erreur lors de la récupération des détails: " + ex.getMessage(),
+                            "Erreur",
+                            JOptionPane.ERROR_MESSAGE);
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+        
+        // Charger les factures au démarrage
+        refreshButton.doClick();
         
         // Événement pour payer une facture
         buttonPay.addActionListener(new ActionListener() {
@@ -557,7 +800,7 @@ public class MagasinGUI extends JFrame {
                     
                     if (choice != -1) {
                         PaymentMethod selectedMethod = methods[choice];
-                        boolean success = billingService.payInvoice(clientId, selectedMethod);
+                        boolean success = billingService.payInvoice(Integer.parseInt(clientId), selectedMethod);
                         
                         if (success) {
                             JOptionPane.showMessageDialog(invoicePanel, 
@@ -578,6 +821,83 @@ public class MagasinGUI extends JFrame {
                     JOptionPane.showMessageDialog(invoicePanel, 
                         "Erreur lors du paiement: " + ex.getMessage(), 
                         "Erreur", 
+                        JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            }
+        });
+        
+        // Événement pour télécharger les factures
+        downloadButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    List<Invoice> invoices = billingService.getAllInvoices();
+                    if (invoices.isEmpty()) {
+                        JOptionPane.showMessageDialog(invoicePanel,
+                            "Aucune facture à télécharger",
+                            "Information",
+                            JOptionPane.INFORMATION_MESSAGE);
+                        return;
+                    }
+
+                    // Créer le contenu du fichier
+                    StringBuilder content = new StringBuilder();
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+                    
+                    for (Invoice invoice : invoices) {
+                        content.append("=== FACTURE ===\n");
+                        content.append("ID: ").append(invoice.getId()).append("\n");
+                        content.append("Client: ").append(invoice.getClientName()).append("\n");
+                        content.append("Date: ").append(dateFormat.format(invoice.getDate())).append("\n");
+                        content.append("------------------------------------------------\n");
+                        content.append(String.format("%-15s %-20s %-10s %-10s %-10s\n", 
+                            "Référence", "Famille", "Prix unit.", "Quantité", "Total"));
+                        content.append("------------------------------------------------\n");
+                        
+                        for (InvoiceItem item : invoice.getArticles()) {
+                            Article article = item.getArticle();
+                            content.append(String.format("%-15s %-20s %-10.2f %-10d %-10.2f\n",
+                                article.getCode(),
+                                article.getFamily(),
+                                article.getPrice(),
+                                item.getQuantity(),
+                                item.getTotalPrice()));
+                        }
+                        
+                        content.append("------------------------------------------------\n");
+                        content.append(String.format("TOTAL: %.2f €\n", invoice.getTotal()));
+                        content.append("Statut: ").append(invoice.isPaid() ? 
+                            "Payée (" + invoice.getPaymentMethod().getDisplayName() + ")" : 
+                            "En attente de paiement").append("\n\n");
+                    }
+
+                    // Demander à l'utilisateur où sauvegarder le fichier
+                    JFileChooser fileChooser = new JFileChooser();
+                    fileChooser.setDialogTitle("Enregistrer les factures");
+                    fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+                    fileChooser.setSelectedFile(new java.io.File("factures.txt"));
+                    
+                    if (fileChooser.showSaveDialog(invoicePanel) == JFileChooser.APPROVE_OPTION) {
+                        java.io.File file = fileChooser.getSelectedFile();
+                        if (!file.getName().toLowerCase().endsWith(".txt")) {
+                            file = new java.io.File(file.getAbsolutePath() + ".txt");
+                        }
+                        
+                        // Écrire le contenu dans le fichier
+                        try (java.io.FileWriter writer = new java.io.FileWriter(file)) {
+                            writer.write(content.toString());
+                        }
+                        
+                        JOptionPane.showMessageDialog(invoicePanel,
+                            "Les factures ont été téléchargées avec succès dans :\n" + file.getAbsolutePath(),
+                            "Succès",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(invoicePanel,
+                        "Erreur lors du téléchargement des factures: " + ex.getMessage(),
+                        "Erreur",
                         JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
@@ -699,7 +1019,7 @@ public class MagasinGUI extends JFrame {
                         return;
                     }
                     
-                    boolean success = articleService.updateStock(reference, quantity);
+                    boolean success = articleService.addStock(reference, quantity);
                     
                     if (success) {
                         JOptionPane.showMessageDialog(stockPanel, 
