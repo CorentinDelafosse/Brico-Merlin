@@ -21,32 +21,26 @@ public class MagasinServer {
     public static void main(String[] args) {
         try {
             System.setSecurityManager(null);
-            // Créer et exposer les services
-            ArticleServiceImpl articleService = new ArticleServiceImpl();
-            BillingServiceImpl billingService = new BillingServiceImpl();
-            
-            ArticleService articleStub = (ArticleService) UnicastRemoteObject.exportObject(articleService, 0);
-            BillingService billingStub = (BillingService) UnicastRemoteObject.exportObject(billingService, 0);
-            
-            // Créer ou obtenir le registre RMI
-            Registry registry = null;
+            // Connexion au serveur central (localhost:1099)
+            Registry centralRegistry = LocateRegistry.getRegistry("127.0.0.1", 1099);
+            ArticleService articleStub = (ArticleService) centralRegistry.lookup("ArticleService");
+            BillingService billingStub = (BillingService) centralRegistry.lookup("BillingService");
+            // Créer le registre RMI local pour le magasin (port 1100)
+            Registry magasinRegistry = null;
             try {
-                registry = LocateRegistry.createRegistry(1099);
-                System.out.println("Registre RMI créé sur le port 1099");
+                magasinRegistry = LocateRegistry.createRegistry(1100);
+                System.out.println("Registre RMI magasin créé sur le port 1100");
             } catch (RemoteException e) {
-                System.out.println("Registre RMI déjà existant, tentative de connexion...");
-                registry = LocateRegistry.getRegistry(1099);
+                System.out.println("Registre RMI magasin déjà existant, tentative de connexion...");
+                magasinRegistry = LocateRegistry.getRegistry(1100);
             }
-            
-            // Enregistrer les services dans le registre
-            registry.rebind("ArticleService", articleStub);
-            registry.rebind("BillingService", billingStub);
-            
-            System.out.println("Services ArticleService et BillingService enregistrés");
-            System.out.println("Serveur prêt");
-            
+            // Enregistrer les stubs du central dans le registre local
+            magasinRegistry.rebind("ArticleService", articleStub);
+            magasinRegistry.rebind("BillingService", billingStub);
+            System.out.println("Services ArticleService et BillingService du central exposés sur le serveur magasin");
+            System.out.println("Serveur magasin prêt");
         } catch (Exception e) {
-            System.err.println("Erreur serveur: " + e.getMessage());
+            System.err.println("Erreur serveur magasin: " + e.getMessage());
             e.printStackTrace();
         }
     }

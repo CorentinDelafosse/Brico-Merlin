@@ -1,5 +1,7 @@
 package fr.bricomerlin.server;
 
+import Magasin.common.ArticleService;
+import Magasin.common.BillingService;
 import Magasin.model.Article;
 import Magasin.model.Invoice;
 import Magasin.server.ArticleServiceImpl;
@@ -11,6 +13,9 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 
 public class CentralServer {
     private ArticleServiceImpl articleService;
@@ -134,6 +139,31 @@ public class CentralServer {
             System.out.println("Prix mis à jour.");
         } catch (Exception e) {
             System.err.println("Erreur lors de la mise à jour du prix : " + e.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+            System.setProperty("java.security.policy", "server.policy");
+            if (System.getSecurityManager() == null) {
+                System.setSecurityManager(null);
+            }
+            ArticleServiceImpl articleService = new ArticleServiceImpl();
+            BillingServiceImpl billingService = new BillingServiceImpl();
+            Registry registry = LocateRegistry.createRegistry(1099);
+            System.out.println("Registre RMI central créé sur le port 1099");
+            ArticleService articleStub = (ArticleService) UnicastRemoteObject.exportObject(articleService, 0);
+            BillingService billingStub = (BillingService) UnicastRemoteObject.exportObject(billingService, 0);
+            registry.rebind("ArticleService", articleStub);
+            registry.rebind("BillingService", billingStub);
+            System.out.println("Services ArticleService et BillingService enregistrés sur le serveur central");
+            System.out.println("Serveur central prêt");
+            // Optionnel : lancer la console d'administration
+            new CentralServer().run();
+        } catch (Exception e) {
+            System.err.println("Erreur serveur central: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 } 

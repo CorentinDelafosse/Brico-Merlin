@@ -79,6 +79,18 @@ public class Invoice implements Serializable {
         this.paid = true;
     }
     
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public void setPaid(boolean paid) {
+        this.paid = paid;
+    }
+
+    public void setDate(Date date) {
+        this.date = date;
+    }
+    
     @Override
     public String toString() {
         return "Invoice [id=" + id + ", clientName=" + clientName + ", date=" + date + ", total=" + total + "]";
