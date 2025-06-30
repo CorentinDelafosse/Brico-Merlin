@@ -8,51 +8,85 @@ import java.rmi.RemoteException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 // Implémentation du service d'articles
 public class ArticleServiceImpl implements ArticleService {
-    private Map<String, Article> articleMap = new HashMap<>();
-    
     public ArticleServiceImpl() throws RemoteException {
-        // Ajouter quelques articles de test
-        addArticle(new Article("A001", "Marteau", "Outil", 12.99, 50));
-        addArticle(new Article("A002", "Tournevis", "Outil", 7.50, 100));
-        addArticle(new Article("A003", "Perceuse", "Outil", 89.99, 20));
-        addArticle(new Article("A004", "Clou", "Matériel", 25.50, 30));
-        addArticle(new Article("A005", "Placo", "Matériel", 14.99, 40));
+        // On ne pré-remplit plus d'articles en mémoire
     }
     
     @Override
     public List<Article> getAllArticles() throws RemoteException {
-        return new ArrayList<>(articleMap.values());
+        List<Article> articles = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM articles";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            var rs = stmt.executeQuery();
+            while (rs.next()) {
+                Article article = new Article(
+                    rs.getString("code"),
+                    rs.getString("name"),
+                    rs.getString("family"),
+                    rs.getDouble("price"),
+                    rs.getInt("stock")
+                );
+                articles.add(article);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return articles;
     }
     
     @Override
     public Article getArticle(String code) throws RemoteException {
-        return articleMap.get(code);
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM articles WHERE code = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, code);
+            var rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new Article(
+                    rs.getString("code"),
+                    rs.getString("name"),
+                    rs.getString("family"),
+                    rs.getDouble("price"),
+                    rs.getInt("stock")
+                );
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
     
     @Override
     public boolean addArticle(Article article) throws RemoteException {
-        if (articleMap.containsKey(article.getCode())) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String checkSql = "SELECT code FROM articles WHERE code = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setString(1, article.getCode());
+            var rs = checkStmt.executeQuery();
+            if (rs.next()) {
+                return false; // L'article existe déjà
+            }
+            String sql = "INSERT INTO articles (code, name, family, price, stock) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, article.getCode());
+            stmt.setString(2, article.getName());
+            stmt.setString(3, article.getFamily());
+            stmt.setDouble(4, article.getPrice());
+            stmt.setInt(5, article.getStock());
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
-        articleMap.put(article.getCode(), article);
-        return true;
     }
 
     public boolean updatePrice(String code, double price) throws RemoteException {
-        Article article = articleMap.get(code);
-        if (article == null) return false;
-
-        // Mise à jour en mémoire
-        Article updated = new Article(article.getCode(), article.getName(), article.getFamily(), price, article.getStock());
-        articleMap.put(article.getCode(), updated);
-
-        // Mise à jour en base de données
         try (Connection conn = DatabaseConnection.getConnection()) {
             String sql = "UPDATE articles SET price = ? WHERE code = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
@@ -68,46 +102,94 @@ public class ArticleServiceImpl implements ArticleService {
     
     @Override
     public boolean updateStock(String code, int quantity) throws RemoteException {
-        Article article = articleMap.get(code);
-        if (article == null) return false;
-        
-        int newStock = article.getStock() - quantity;
-        if (newStock < 0) return false;
-        
-        article.setStock(newStock);
-        return true;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            // On récupère le stock actuel
+            String selectSql = "SELECT stock FROM articles WHERE code = ?";
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setString(1, code);
+            var rs = selectStmt.executeQuery();
+            if (!rs.next()) return false;
+            int currentStock = rs.getInt("stock");
+            int newStock = currentStock - quantity;
+            if (newStock < 0) return false;
+            String updateSql = "UPDATE articles SET stock = ? WHERE code = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setInt(1, newStock);
+            updateStmt.setString(2, code);
+            int rows = updateStmt.executeUpdate();
+            return rows > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
     public List<Article> searchArticlesByFamily(String family) throws RemoteException {
         List<Article> articles = new ArrayList<>();
-        for (Article article : articleMap.values()) {
-            if (article.getFamily().equals(family)) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "SELECT * FROM articles WHERE family = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, family);
+            var rs = stmt.executeQuery();
+            while (rs.next()) {
+                Article article = new Article(
+                    rs.getString("code"),
+                    rs.getString("name"),
+                    rs.getString("family"),
+                    rs.getDouble("price"),
+                    rs.getInt("stock")
+                );
                 articles.add(article);
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return articles;
     }
 
     @Override
     public boolean addStock(String code, int quantity) throws RemoteException {
-        Article article = articleMap.get(code);
-        if (article == null) return false;
-        
-        int newStock = article.getStock() + quantity;
-        article.setStock(newStock);
-        return true;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String selectSql = "SELECT stock FROM articles WHERE code = ?";
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setString(1, code);
+            var rs = selectStmt.executeQuery();
+            if (!rs.next()) return false;
+            int currentStock = rs.getInt("stock");
+            int newStock = currentStock + quantity;
+            String updateSql = "UPDATE articles SET stock = ? WHERE code = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setInt(1, newStock);
+            updateStmt.setString(2, code);
+            int rows = updateStmt.executeUpdate();
+            return rows > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
     public boolean buyArticle(String code, int quantity, String id) throws RemoteException {
-        Article article = articleMap.get(code);
-        if (article == null) return false;
-        
-        int newStock = article.getStock() - quantity;
-        if (newStock < 0) return false;
-        
-        article.setStock(newStock);
-        return true;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String selectSql = "SELECT stock FROM articles WHERE code = ?";
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setString(1, code);
+            var rs = selectStmt.executeQuery();
+            if (!rs.next()) return false;
+            int currentStock = rs.getInt("stock");
+            int newStock = currentStock - quantity;
+            if (newStock < 0) return false;
+            String updateSql = "UPDATE articles SET stock = ? WHERE code = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setInt(1, newStock);
+            updateStmt.setString(2, code);
+            int rows = updateStmt.executeUpdate();
+            return rows > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }
