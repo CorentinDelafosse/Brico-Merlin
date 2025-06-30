@@ -2,8 +2,11 @@ package Magasin.server;
 
 import Magasin.common.ArticleService;
 import Magasin.model.Article;
+import Magasin.util.DatabaseConnection;
 
 import java.rmi.RemoteException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +42,28 @@ public class ArticleServiceImpl implements ArticleService {
         }
         articleMap.put(article.getCode(), article);
         return true;
+    }
+
+    public boolean updatePrice(String code, double price) throws RemoteException {
+        Article article = articleMap.get(code);
+        if (article == null) return false;
+
+        // Mise à jour en mémoire
+        Article updated = new Article(article.getCode(), article.getName(), article.getFamily(), price, article.getStock());
+        articleMap.put(article.getCode(), updated);
+
+        // Mise à jour en base de données
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = "UPDATE articles SET price = ? WHERE code = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setDouble(1, price);
+            stmt.setString(2, code);
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
     
     @Override

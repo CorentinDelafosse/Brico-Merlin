@@ -10,7 +10,8 @@ public class Main {
         System.out.println("=== Brico-Merlin Client Application ===");
         System.out.println("1. Interface console");
         System.out.println("2. Interface graphique");
-        System.out.print("Choisissez votre interface (1/2): ");
+        System.out.println("3. Serveur central");
+        System.out.print("Choisissez votre interface (1/2/3): ");
         
         Scanner scanner = new Scanner(System.in);
         int choice = 2; // Par défaut : interface graphique
@@ -29,6 +30,10 @@ public class Main {
             } else {
                 System.err.println("Impossible de se connecter au serveur. L'application va se terminer.");
             }
+        } else if (choice == 3) {
+            System.out.println("Lancement du serveur central...");
+            fr.bricomerlin.server.CentralServer centralServer = new fr.bricomerlin.server.CentralServer();
+            centralServer.run();
         } else {
             System.out.println("Lancement de l'interface graphique...");
             SwingUtilities.invokeLater(() -> {
